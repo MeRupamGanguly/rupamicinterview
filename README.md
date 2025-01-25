@@ -596,6 +596,129 @@ func main() {
 }
 ```
 
+### Mux Middleware
+Middleware functions can be added to the Gin router for processing requests before they reach your handler functions. This is useful for logging, authentication, and other cross-cutting concerns.
+Example:
+
+```go
+package middlewares
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
+)
+
+// Secret key for JWT
+var secretKey = []byte("007jamesbond")
+
+// Generate JWT Token
+func GenerateJWT(username string, roles []string) (string, error) {
+	// Set token claims
+	claims := jwt.MapClaims{
+		"roles":    roles,
+		"username": username,
+		"exp":      time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
+	}
+
+	// Create token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token with the secret key
+	return token.SignedString(secretKey)
+}
+
+// Middleware to validate JWT token
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get token from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing Authorization Header", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract token (assumes the header is in the form "Bearer <token>")
+		tokenString := authHeader[len("Bearer "):]
+
+		// Parse the token
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// Validate the signing method (it must be HS256 in this case)
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return secretKey, nil
+		})
+
+		// If there is an error or the token is invalid, return Unauthorized
+		if err != nil || !token.Valid {
+			http.Error(w, "invalid Token", http.StatusUnauthorized)
+			return
+		}
+
+		// Token is valid, continue to the next handler
+		next.ServeHTTP(w, r)
+	})
+}
+
+
+
+```
+```go
+r := mux.NewRouter()
+// Protected endpoint (requires token)
+r.Handle("/protected", AuthMiddleware(http.HandlerFunc(protectedEndpoint))).Methods("GET")
+```
+
+
+
+```go
+package middlewares
+
+import (
+	"log"
+	"net/http"
+	"time"
+)
+
+// responseRecorder is a custom ResponseWriter to capture status codes
+type responseRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+// WriteHeader captures the status code to log it
+func (rr *responseRecorder) WriteHeader(statusCode int) {
+	rr.statusCode = statusCode
+	rr.ResponseWriter.WriteHeader(statusCode)
+}
+
+func LogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Record the start time
+		start := time.Now()
+
+		// Create a custom response writer to capture the status code
+		rr := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+
+		// Call the next handler (it could be your protected endpoint or any other)
+		next.ServeHTTP(rr, r)
+
+		// Log the request details
+		duration := time.Since(start)
+		log.Printf("Method: %s, URL: %s, Status: %d, Duration: %s", r.Method, r.URL.Path, rr.statusCode, duration)
+	})
+}
+
+```
+```go
+r := mux.NewRouter()
+// Wrap the routes with the logging middleware
+r.Use(LogMiddleware)
+```
+
 ### GIN Framework
 
 Choose Gin if you need a high-performance framework with built-in features, ease of use, and a rich set of functionalities, making it ideal for building APIs and web applications quickly.
@@ -611,8 +734,7 @@ router.GET("/ping", func(c *gin.Context) {
 })
 ```
 2. Middleware
-Middleware functions can be added to the Gin router for processing requests before they reach your handler functions. This is useful for logging, authentication, and other cross-cutting concerns.
-Example:
+
 
 ```go
 package main
