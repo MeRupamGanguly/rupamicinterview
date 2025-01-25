@@ -869,6 +869,152 @@ err = ch.QueueBind(queue.Name, "", "header_logs", false, headers)
 
 ```
 
+
+
+
+## GRPC
+- gRPC uses HTTP/2 and binary serialization (Protocol Buffers) for high performance and efficiency, It supports bi-directional streaming.
+- REST relies on HTTP/1.1 and text-based formats like JSON, offering simplicity and ease of use for web applications. REST is stateless and leverages standard HTTP methods, making it widely adopted and easy to debug. 
+- Choose gRPC if you need high performance, efficient binary serialization, and streaming capabilities, especially in microservices.
+- Choose REST if you prefer simplicity, human readability, and a stateless architecture that is widely supported.
+
+
+```proto
+syntax = "proto3";
+
+package chat;
+
+service Chat {
+
+  rpc ServerStream (Message) returns (stream Message);
+
+
+  rpc ClientStream (stream Message) returns (Message);
+
+
+  rpc StreamChat (stream Message) returns (stream Message);
+}
+
+
+message Message {
+  string sender = 1;
+  string content = 2;
+}
+
+```
+- The Chat service contains three RPC methods.
+- The Message message type contains two fields: sender (to indicate who sent the message) and content (the message text).
+
+To generate the Go code from this .proto file, use the following command:
+```bash
+protoc --go_out=. --go-grpc_out=. chat.proto
+```
+```go
+package main
+
+import (
+    "io"
+    "log"
+    "net"
+    "time"
+
+    "golang.org/x/net/context"
+    "google.golang.org/grpc"
+    pb "path/to/your/chat" // Adjust the import path
+)
+
+// Server struct
+type server struct {
+    pb.UnimplementedChatServer
+}
+
+// Server-side streaming method
+func (s *server) ServerStream(req *pb.Message, stream pb.Chat_ServerStreamServer) error {
+    for i := 0; i < 5; i++ {
+        stream.Send(&pb.Message{Sender: "Server", Content: req.Content + " " + time.Now().String()})
+        time.Sleep(time.Second)
+    }
+    return nil
+}
+
+// Client-side streaming method
+func (s *server) ClientStream(stream pb.Chat_ClientStreamServer) error {
+    var messages []string
+    for {
+        msg, err := stream.Recv()
+        if err == io.EOF {
+            break
+        }
+        messages = append(messages, msg.Content)
+    }
+    stream.SendAndClose(&pb.Message{Sender: "Server", Content: "Received: " + fmt.Sprint(messages)})
+    return nil
+}
+
+// Bidirectional streaming method
+func (s *server) StreamChat(stream pb.Chat_StreamChatServer) error {
+    for {
+        msg, err := stream.Recv()
+        if err == io.EOF {
+            break
+        }
+        stream.Send(&pb.Message{Sender: "Server", Content: "Echo: " + msg.Content})
+    }
+    return nil
+}
+
+func main() {
+    lis, _ := net.Listen("tcp", ":50051")
+    s := grpc.NewServer()
+    pb.RegisterChatServer(s, &server{})
+    go s.Serve(lis)
+
+    conn, _ := grpc.Dial("localhost:50051", grpc.WithInsecure())
+    client := pb.NewChatClient(conn)
+
+    // Client-side streaming
+    clientStream, _ := client.ClientStream(context.Background())
+    for i := 0; i < 3; i++ {
+        clientStream.Send(&pb.Message{Content: "Client message " + fmt.Sprint(i)})
+    }
+    clientStream.CloseSend()
+
+    // Server-side streaming
+    serverStream, _ := client.ServerStream(context.Background(), &pb.Message{Content: "Hello!"})
+    for {
+        msg, err := serverStream.Recv()
+        if err != nil {
+            break
+        }
+        log.Println(msg.Content)
+    }
+
+    // Bidirectional streaming
+    bidiStream, _ := client.StreamChat(context.Background())
+    go func() {
+        for i := 0; i < 3; i++ {
+            bidiStream.Send(&pb.Message{Content: "Bidirectional message " + fmt.Sprint(i)})
+            time.Sleep(time.Second)
+        }
+        bidiStream.CloseSend()
+    }()
+    for {
+        msg, err := bidiStream.Recv()
+        if err != nil {
+            break
+        }
+        log.Println(msg.Content)
+    }
+}
+```
+Summary of Steps
+- Define the Server: A server struct implements the ChatServer interface, with three methods for server-side streaming, client-side streaming, and bidirectional streaming.
+- Implement Streaming Methods: The ServerStream method sends multiple messages back to the client; the ClientStream method collects messages from the client and sends a summary; and StreamChat handles both incoming and outgoing messages simultaneously.
+- Set Up the gRPC Server: The main function creates a listener on port 50051, registers the server, and starts serving in a separate goroutine.
+- Create and Use a gRPC Client: The client connects to the server and demonstrates client-side streaming by sending messages, server-side streaming by receiving multiple messages, and bidirectional streaming in a separate goroutine.
+- Run the Server and Client: The entire setup allows for real-time message exchange, showcasing the flexibility of gRPC for various streaming patterns within a single file.
+
+
 ## Kubernetes 
 Kubernetes is designed for automate the process of deploying, scaling, and managing containerized applications.  Kubernetes uses YAML files to define resources.
 
