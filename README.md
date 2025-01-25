@@ -389,6 +389,159 @@ Two goroutines generate even and odd numbers up to 30 and send them through thei
 The third goroutine prints numbers alternately from these channels, ensuring the sequence.
 The sync.WaitGroup ensures that the program waits for all goroutines to finish before exiting.
 
+
+### Limited Concurrency
+We create a channel sem := make(chan struct{}, concurrencyLimit) with a buffer size of concurrencyLimit (in this case, 5). This means only 5 goroutines can acquire a slot at any given time.
+Inside each goroutine, sem <- struct{}{} is used to acquire a slot. When a goroutine finishes its task, it releases the slot using <-sem.
+If the semaphore is full (i.e., 5 goroutines are already running), any additional goroutines will block (wait) until a slot is available.
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+func task(id int, sem chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done() // Decrement counter when the task is done
+
+	sem <- struct{}{} // Acquire a slot (semaphore)
+	fmt.Printf("Goroutine %d is starting\n", id)
+	time.Sleep(1 * time.Second) // Simulate work by sleeping for 1 second
+	fmt.Printf("Goroutine %d is finished\n", id)
+	<-sem // Release the slot (semaphore)
+}
+
+func main() {
+	var wg sync.WaitGroup
+	concurrencyLimit := 5
+	sem := make(chan struct{}, concurrencyLimit) // Semaphore with a limit of 5 concurrent goroutines
+
+	// Launch 40 goroutines
+	for i := 1; i <= 40; i++ {
+		wg.Add(1)            // Add a goroutine to the wait group
+		go task(i, sem, &wg) // Start the task as a goroutine
+	}
+
+	wg.Wait() // Wait for all goroutines to complete
+	fmt.Println("All goroutines have finished.")
+}
+```
+### Go Scheduler 
+The Go scheduler is responsible for deciding when and on which OS thread each goroutine runs. This allows Go to efficiently handle thousands (or more) of goroutines running concurrently.
+
+The scheduler uses a M:N scheduling model, where M goroutines are multiplexed onto N OS threads. This means multiple goroutines can share the same OS thread and the Go runtime switches between them as needed.
+
+In Go, when we run multiple goroutines (like mini-tasks), the Go runtime decides when each goroutine should run. By default, Go will let a goroutine keep running until it finishes or does something that allows other tasks to take over (like waiting for I/O or sleeping).
+
+However, sometimes you might want to force Go to give other goroutines a chance to run even if the current goroutine is still doing something. This is where runtime.Gosched() comes in. When you call runtime.Gosched(), it tells Go to stop the current goroutine for a moment and allow other goroutines to run if they need to. It doesn't stop your goroutine permanently, but just gives other tasks a chance to run before your goroutine continues.
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+	"time"
+)
+
+func printNumbers() {
+	for i := 0; i < 5; i++ {
+		fmt.Println(i)
+		time.Sleep(100 * time.Millisecond) // Simulate work
+		runtime.Gosched()                  // Yield and allow other goroutines to run
+	}
+}
+
+func printLetters() {
+	for i := 'a'; i <= 'e'; i++ {
+		fmt.Println(string(i))
+		time.Sleep(100 * time.Millisecond) // Simulate work
+	}
+}
+
+func main() {
+	go printNumbers() // Run in a goroutine
+	go printLetters() // Run in a goroutine
+
+	// Sleep for a bit to let the goroutines finish
+	time.Sleep(1 * time.Second)
+}
+```
+
+`runtime.Gosched()`: This function tells the Go scheduler to yield the processor to other goroutines that are ready to run. The current goroutine will continue after the scheduler decides it's ready.
+
+`runtime.GOMAXPROCS(n)`: This function sets the maximum number of CPUs that Go will use for running goroutines. By default, Go will use all available CPUs. This function allows you to limit it to n CPUs.
+
+`runtime.NumCPU()`: This function returns the number of CPUs available on the current machine.
+
+`runtime.Goexit()`: This function causes the current goroutine to exit immediately. It stops the execution of the goroutine and runs any deferred functions.
+
+`runtime.LockOSThread()`: Lock a goroutine to the current OS thread. This function locks the current goroutine to a specific operating system thread. This is useful when you need a goroutine to remain on the same OS thread, which may be necessary for certain low-level or system programming tasks (e.g., interacting with C libraries or handling signals).
+
+`runtime.NumGoroutine()`: This function returns the number of goroutines currently running.
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+	"sync"
+	"time"
+)
+
+// FibRecursive calculates Fibonacci numbers recursively
+func FibRecursive(x int) int {
+	if x <= 0 {
+		return 0
+	} else if x == 1 {
+		return 1
+	}
+	return FibRecursive(x-1) + FibRecursive(x-2)
+}
+
+// Fibonacci calculation for each core, passing the index as the Fibonacci number to calculate
+func calculateFibonacci(id int, cpun int, fibNum int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	// Start Fibonacci calculation (it'll be a high CPU operation)
+	fmt.Printf("CPU %d :- Goroutine %d calculating Fibonacci(%d)\n", cpun, id, fibNum)
+	result := FibRecursive(fibNum)
+	fmt.Printf("CPU %d :- Goroutine %d result: Fibonacci(%d) = %d\n", cpun, id, fibNum, result)
+}
+
+func main() {
+	// Get the number of CPUs on the machine
+	numCPU := runtime.NumCPU()
+	fmt.Printf("Number of CPUs available: %d\n", numCPU)
+
+	// Set the number of CPUs that Go can use to all available CPUs
+	runtime.GOMAXPROCS(numCPU)
+
+	// Create a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+
+	// Distribute Fibonacci numbers across CPU cores starting from Fibonacci(12)
+	for i := 0; i < numCPU; i++ {
+		fibNum := 32 + i                           // Start from Fibonacci(12) and increase with each core
+		wg.Add(1)                                  // Increment the WaitGroup counter
+		go calculateFibonacci(i+1, i, fibNum, &wg) // Launch a goroutine with a unique Fibonacci number
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	// Simulate a little pause to allow you to inspect CPU usage
+	time.Sleep(5 * time.Second)
+	fmt.Println("DONE---------")
+}
+
+```
+
+![Image](https://github.com/user-attachments/assets/bf519017-1fa9-4a1a-8ac3-fd3d86bdeb57)
+
 ### SOLID Principles:
 SOLID priciples are guidelines for designing Code base that are easy to understand maintain and extend over time.
 
