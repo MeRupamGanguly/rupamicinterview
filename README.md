@@ -389,6 +389,58 @@ Two goroutines generate even and odd numbers up to 30 and send them through thei
 The third goroutine prints numbers alternately from these channels, ensuring the sequence.
 The sync.WaitGroup ensures that the program waits for all goroutines to finish before exiting.
 
+### Dependent GoRoutine.
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+// Task 1: Prints a message and simulates some work
+func task1(done chan bool) {
+	fmt.Println("Task 1: Starting")
+	time.Sleep(2 * time.Second) // Simulate work
+	fmt.Println("Task 1: Completed")
+
+	// Signal Task 2 that Task 1 is done
+	done <- true
+}
+
+// Task 2: Prints a message and simulates some work
+func task2(done chan bool) {
+	// Wait for the signal from Task 1 that it is complete
+	<-done
+
+	fmt.Println("Task 2: Starting")
+	time.Sleep(3 * time.Second) // Simulate work
+	fmt.Println("Task 2: Completed")
+}
+
+func main() {
+	// Create a channel to signal when Task 1 is done
+	done := make(chan bool)
+
+	// Start Task 1 in a goroutine
+	go task1(done)
+
+	// Start Task 2 in a goroutine, but it will wait for Task 1 to complete
+	go task2(done)
+
+	// Wait for Task 1 and Task 2 to complete before finishing the program
+	time.Sleep(6 * time.Second)
+	fmt.Println("All tasks completed!")
+}
+```
+
+Alternate Solution:-
+The main function first calls wg.Add(1) before launching Task 1. This increments the counter of the WaitGroup.
+After launching Task 1, we call wg.Wait(), which blocks until the Task 1 goroutine completes. This ensures that Task 2 doesn’t start until Task 1 is done.
+Once Task 1 finishes, we increment the counter again with wg.Add(1) and launch Task 2.
+Finally, we call wg.Wait() again to wait for Task 2 to complete.
 
 ### Limited Concurrency
 We create a channel sem := make(chan struct{}, concurrencyLimit) with a buffer size of concurrencyLimit (in this case, 5). This means only 5 goroutines can acquire a slot at any given time.
@@ -482,6 +534,9 @@ func main() {
 
 `runtime.NumGoroutine()`: This function returns the number of goroutines currently running.
 
+
+### By setting runtime.GOMAXPROCS(numCPU), Go utilizes all available CPU cores, ensuring maximum parallelism.
+
 ```go
 package main
 
@@ -540,7 +595,80 @@ func main() {
 
 ```
 
+
 ![Image](https://github.com/user-attachments/assets/bf519017-1fa9-4a1a-8ac3-fd3d86bdeb57)
+
+
+### Sequential Execution 
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+	"sync"
+	"time"
+)
+
+// FibRecursive calculates Fibonacci numbers recursively
+func FibRecursive(x int) int {
+	if x <= 0 {
+		return 0
+	} else if x == 1 {
+		return 1
+	}
+	return FibRecursive(x-1) + FibRecursive(x-2)
+}
+
+// Fibonacci calculation for each core, passing the index as the Fibonacci number to calculate
+func calculateFibonacci(id int, fibNum int, wg *sync.WaitGroup, done chan bool) {
+	defer wg.Done() // Signal when the goroutine is done
+
+	// Start Fibonacci calculation (it'll be a high CPU operation)
+	fmt.Printf("Goroutine %d calculating Fibonacci(%d)\n", id, fibNum)
+	result := FibRecursive(fibNum)
+	fmt.Printf("Goroutine %d result: Fibonacci(%d) = %d\n", id, fibNum, result)
+
+	// Yield processor to other goroutines
+	runtime.Gosched()
+
+	// Signal that the current goroutine is done
+	done <- true
+}
+
+func main() {
+	// Get the number of CPUs on the machine
+	numCPU := runtime.NumCPU()
+	fmt.Printf("Number of CPUs available: %d\n", numCPU)
+
+	// Set the number of CPUs that Go can use to all available CPUs
+	runtime.GOMAXPROCS(numCPU)
+
+	// Create a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+
+	// Create a channel to signal when a goroutine finishes
+	done := make(chan bool)
+
+	// Distribute Fibonacci numbers across CPU cores starting from Fibonacci(12)
+	for i := 0; i < numCPU; i++ {
+		fibNum := 32 + i // Start from Fibonacci(32) and increase with each core
+		wg.Add(1)        // Increment the WaitGroup counter
+		go calculateFibonacci(i+1, fibNum, &wg, done) // Launch a goroutine with a unique Fibonacci number
+
+		// Wait for the current goroutine to finish before launching the next one
+		<-done
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	// Simulate a little pause to allow you to inspect CPU usage
+	time.Sleep(5 * time.Second)
+	fmt.Println("DONE---------")
+}
+
+```
 
 ### SOLID Principles:
 SOLID priciples are guidelines for designing Code base that are easy to understand maintain and extend over time.
