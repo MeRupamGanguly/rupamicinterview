@@ -324,7 +324,70 @@ func main() {
 }
 ```
 
+```go
+package main
 
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	// Create two channels, one for even numbers and one for odd numbers
+	evenCh := make(chan int)
+	oddCh := make(chan int)
+
+	var wg sync.WaitGroup
+
+	// Goroutine to send even numbers up to 30
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i <= 30; i++ {
+			if i%2 == 0 {
+				evenCh <- i
+			}
+		}
+		close(evenCh)
+	}()
+
+	// Goroutine to send odd numbers up to 30
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 1; i <= 30; i++ {
+			if i%2 != 0 {
+				oddCh <- i
+			}
+		}
+		close(oddCh)
+	}()
+
+	// Alternately print even and odd numbers until both channels are closed
+	go func() {
+		for { 
+			// This loop keeps running indefinitely (for {}), alternating between printing even and odd numbers, until both channels are closed and drained.
+			select {
+			case even, ok := <-evenCh:
+				if ok {
+					fmt.Println("Even:", even)
+				}
+			case odd, ok := <-oddCh:
+				if ok {
+					fmt.Println("Odd:", odd)
+				}
+			}
+		}
+	}()
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+}
+
+```
+Two goroutines generate even and odd numbers up to 30 and send them through their respective channels (evenCh and oddCh).
+The third goroutine prints numbers alternately from these channels, ensuring the sequence.
+The sync.WaitGroup ensures that the program waits for all goroutines to finish before exiting.
 
 ### SOLID Principles:
 SOLID priciples are guidelines for designing Code base that are easy to understand maintain and extend over time.
