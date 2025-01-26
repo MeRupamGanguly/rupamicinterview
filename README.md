@@ -2,13 +2,12 @@
 # One Stop Solution For Interview Preparation of Golang Developer
 
 ## Introduce Yourself
-I have a background in BTech IT. My first company was Sensibol, where I worked as a Golang Backend Developer. My primary role was developing microservices using Golang, AWS, MongoDB, and Redis. Currently, I am working at Calsoft for Extreme Networks, focusing on a project related to data center automation. In this project,  My primary role is developing microservices with Golang, RabbitMQ, Kubernetes, MySQL, and GoSwitch for managing Multiple Switeches with Software.
+I have a BTech in IT and started my career at Sensibol as a Golang Backend Developer. My main responsibilities included developing microservices, writing business logic, and using technologies like Golang, AWS, MongoDB, and Redis. Currently, I’m working at Calsoft on a project for Extreme Networks, focused on data center automation. In this role, I develop microservices, write business logic, and use tools like Golang, RabbitMQ, Kubernetes, MySQL, and GoSwitch to manage multiple switches with software.
 
 ## What Projects Have You Worked On?
 - **PDL (Phonographic Digital Limited)**: A music distribution and royalty management platform.
 - **Singshala**: A platform similar to TikTok but with the added feature of analyzing the audio components of videos and providing rankings based on that analysis.
-- **Data Center Automation**: In this project, we create profiles that are essentially configurations applied to switch ports, and bind those configurations to the ports.
-
+- **Data Center Automation**: In this project, we create profiles, which are configurations applied to switch ports, and then bind those profiles to the ports.
 
 ## Microservices vs Monolith
 - **Microservices** are better for large projects where scaling and almost zero downtime are required. Bug fixing and maintaining the codebase are easier. A disadvantage of microservices can be inter-service network calls.
@@ -436,7 +435,7 @@ func main() {
 }
 ```
 
-Alternate Solution:-
+`Alternate Solution` :-
 The main function first calls wg.Add(1) before launching Task 1. This increments the counter of the WaitGroup.
 After launching Task 1, we call wg.Wait(), which blocks until the Task 1 goroutine completes. This ensures that Task 2 doesn’t start until Task 1 is done.
 Once Task 1 finishes, we increment the counter again with wg.Add(1) and launch Task 2.
@@ -446,6 +445,7 @@ Finally, we call wg.Wait() again to wait for Task 2 to complete.
 We create a channel sem := make(chan struct{}, concurrencyLimit) with a buffer size of concurrencyLimit (in this case, 5). This means only 5 goroutines can acquire a slot at any given time.
 Inside each goroutine, sem <- struct{}{} is used to acquire a slot. When a goroutine finishes its task, it releases the slot using <-sem.
 If the semaphore is full (i.e., 5 goroutines are already running), any additional goroutines will block (wait) until a slot is available.
+
 ```go
 package main
 
