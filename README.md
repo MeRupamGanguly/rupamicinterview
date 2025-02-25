@@ -1445,6 +1445,44 @@ err = ch.QueueBind(queue.Name, "", "header_logs", false, headers)
 - Choose gRPC if you need high performance, efficient binary serialization, and streaming capabilities, especially in microservices.
 - Choose REST if you prefer simplicity, human readability, and a stateless architecture that is widely supported.
 
+Why Authentication in gRPC? It helps prevent unauthorized access and secures communication between the client and the server. SSL/TLS ensures that the communication between the client and server is encrypted. With token-based authentication, the client must include a token (like JWT) in the request, which proves their identity and permissions.
+
+To generate a certificate (cert) and private key (key) for SSL/TLS authentication in Go (or in any other application), you can use the openssl tool. 
+To generate a private key, you can use the following command: `openssl genpkey -algorithm RSA -out server.key -aes256`
+Self-Signed Certificate : `openssl req -new -x509 -key server.key -out server.crt -days 365`
+Creating a Certificate Signed by a Trusted CA:
+- Create a Private Key
+- Once you have the private key, you can generate a CSR. This CSR contains information about the server, and it will be submitted to the CA for signing. openssl req -new -key server.key -out server.csr You will be prompted for details like Common Name (CN), Organization, and Location. The most important field is CN (Common Name), which should match the fully qualified domain name (FQDN) of your server (e.g., example.com or yourserver.com).
+- You need to submit the server.csr file to a CA (trusted organization) for signing. If you are using a public CA, like Let's Encrypt, GoDaddy, or DigiCert, they will provide a process for submitting the CSR and issuing a signed certificate.
+- After the CA signs the CSR, you will receive a signed certificate (server.crt). This certificate is now trusted (assuming it's signed by a trusted CA).
+- After obtaining the signed certificate, you can verify that the certificate matches the private key and is properly signed by the CA:
+
+Load server certificate and private key for TLS
+creds, err := credentials.NewServerTLSFromFile("server.crt", "server.key")
+// Create a gRPC server with TLS credentials
+	grpcServer := grpc.NewServer(grpc.Creds(creds))
+
+// Create a gRPC server with interceptor for JWT validation in main
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(func(
+			ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+			// Perform authentication
+			if _, err := authenticate(ctx); err != nil {
+				return nil, grpc.Errorf(grpc.Code(err), err.Error())
+			}
+			// Call the handler to proceed with the request
+			return handler(ctx, req)
+		}),
+	)
+
+
+
+The client must also use the server's public certificate to verify the server’s identity and establish a secure connection.
+// Load the server certificate
+	creds, err := credentials.NewClientTLSFromFile("server.crt", "")
+// Create a gRPC client with TLS credentials
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(creds))
+
 
 ```proto
 syntax = "proto3";
