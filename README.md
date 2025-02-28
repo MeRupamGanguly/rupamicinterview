@@ -21,7 +21,7 @@ I have a BTech in IT and started my career at Sensibol as a Golang Backend Devel
 Golang uses automatic garbage collection to manage memory. Developers do not need to allocate or deallocate memory manually, which reduces memory-related errors.
 
 ## Pointer
-A **pointer** holds the memory address of a variable, struct, function, or any data type.
+A **pointer** store the memory address of a variable, struct, function, or any data type.
 
 - You can reference a variable to get its address using the `&` operator.
 - You can dereference a pointer to access the value at the memory address it points to using the `*` operator.
@@ -1445,23 +1445,30 @@ err = ch.QueueBind(queue.Name, "", "header_logs", false, headers)
 - Choose gRPC if you need high performance, efficient binary serialization, and streaming capabilities, especially in microservices.
 - Choose REST if you prefer simplicity, human readability, and a stateless architecture that is widely supported.
 
-Why Authentication in gRPC? It helps prevent unauthorized access and secures communication between the client and the server. SSL/TLS ensures that the communication between the client and server is encrypted. With token-based authentication, the client must include a token (like JWT) in the request, which proves their identity and permissions.
+- In gRPC we can authenticate and secure connections by using SSL and JWT Token.   SL/TLS ensures that the communication between the client and server is encrypted. With token-based authentication, the client must include a token (like JWT) in the request, which proves their identity and permissions.
 
-To generate a certificate (cert) and private key (key) for SSL/TLS authentication in Go (or in any other application), you can use the openssl tool. 
-To generate a private key, you can use the following command: `openssl genpkey -algorithm RSA -out server.key -aes256`
-Self-Signed Certificate : `openssl req -new -x509 -key server.key -out server.crt -days 365`
+- In SSL/TLS authentication we need Certificate and Private Key.
+
+- To generate a certificate (cert) and private key (key) for SSL/TLS authentication in Go (or in any other application), we can use the openssl tool. 
+To generate a private key, we can use the following command: `openssl genpkey -algorithm RSA -out server.key -aes256`
+To generate Self-Signed Certificate : `openssl req -new -x509 -key server.key -out server.crt -days 365`
 Creating a Certificate Signed by a Trusted CA:
 - Create a Private Key
-- Once you have the private key, you can generate a CSR. This CSR contains information about the server, and it will be submitted to the CA for signing. openssl req -new -key server.key -out server.csr You will be prompted for details like Common Name (CN), Organization, and Location. The most important field is CN (Common Name), which should match the fully qualified domain name (FQDN) of your server (e.g., example.com or yourserver.com).
+- Once you have the private key, you can generate a CSR. This CSR contains information about the server, and it will be submitted to the CA for signing. we can use the following command: `openssl req -new -key server.key -out server.csr` You will be prompted for details like Common Name (CN), Organization, and Location. The most important field is CN (Common Name), which should match the fully qualified domain name (FQDN) of your server (e.g., example.com or yourserver.com).
 - You need to submit the server.csr file to a CA (trusted organization) for signing. If you are using a public CA, like Let's Encrypt, GoDaddy, or DigiCert, they will provide a process for submitting the CSR and issuing a signed certificate.
 - After the CA signs the CSR, you will receive a signed certificate (server.crt). This certificate is now trusted (assuming it's signed by a trusted CA).
 - After obtaining the signed certificate, you can verify that the certificate matches the private key and is properly signed by the CA:
 
-Load server certificate and private key for TLS
+```go
+// Load server certificate and private key for TLS
 creds, err := credentials.NewServerTLSFromFile("server.crt", "server.key")
+```
+```go
 // Create a gRPC server with TLS credentials
-	grpcServer := grpc.NewServer(grpc.Creds(creds))
+grpcServer := grpc.NewServer(grpc.Creds(creds))
+```
 
+```go
 // Create a gRPC server with interceptor for JWT validation in main
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(func(
@@ -1474,15 +1481,16 @@ creds, err := credentials.NewServerTLSFromFile("server.crt", "server.key")
 			return handler(ctx, req)
 		}),
 	)
-
-
+```
 
 The client must also use the server's public certificate to verify the server’s identity and establish a secure connection.
-// Load the server certificate
-	creds, err := credentials.NewClientTLSFromFile("server.crt", "")
-// Create a gRPC client with TLS credentials
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(creds))
 
+```go
+// Load the server certificate
+creds, err := credentials.NewClientTLSFromFile("server.crt", "")
+// Create a gRPC client with TLS credentials
+conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(creds))
+```
 
 ```proto
 syntax = "proto3";
@@ -1513,6 +1521,8 @@ message Message {
 To generate the Go code from this .proto file, use the following command:
 ```bash
 protoc --go_out=. --go-grpc_out=. chat.proto
+
+protoc --proto_path=/ticker/domain --go_out=/ticker/domain --go-grpc_out=/ticker/domain /ticker/domain/ticker.proto
 ```
 ```go
 package main
