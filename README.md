@@ -1,14 +1,16 @@
 
 # One Stop Solution For Interview Preparation of Golang Developer
 
-## Introduce Yourself
-I have a BTech in IT and started my career at Sensibol as a Golang Backend Developer. My main responsibilities included developing microservices, writing business logic, and using technologies like Golang, AWS, MongoDB, and Redis. Currently, I’m working at Calsoft on a project for Extreme Networks, focused on data center automation. In this role, I develop microservices, write business logic, and use tools like Golang, RabbitMQ, Kubernetes, MySQL, and GoSwitch to manage multiple switches with software.
+# Introduce Yourself:
 
-## What Projects Have You Worked On?
-- **PDL (Phonographic Digital Limited)**: A music distribution and royalty management platform.
-- **Singshala**: A platform similar to TikTok but with the added feature of analyzing the audio components of videos and providing rankings based on that analysis.
-- **Data Center Automation**: In this project, we create profiles, which are configurations applied to switch ports, and then bind those profiles to the ports.
+I have Btech in IT, Started my Career at Sensibol as Golang Backend Developer. There my Primary role was Developing REST APIs and Microservices, Business logics, Bug Fixes etc. We use Golang Aws MySql Redis etc. After I joined Calsoft and worked with Extreme Network CLient where my primary role was Bug Fixes, Crate APIs, Write Unit and Functional Test cases, We use Same Golang RabbitMQ, SQL gRPC etc.
 
+# Projects:
+I worked on PDL: Music distribution and royalty management platform. Basically I was the main work force on the Project.
+
+Also worked on Singshala: Which is similar to Learn to Sing app.
+
+Worked on XCO which is data center automation project, where we manage Multiple Switches and their PORTs and binding them according Profiles Fabric and Tenants.  
 ## Microservices vs Monolith
 - **Microservices** are better for large projects where scaling and almost zero downtime are required. Bug fixing and maintaining the codebase are easier. A disadvantage of microservices can be inter-service network calls.
 - **Monolith** is suitable for smaller projects but can become difficult to scale or maintain as the application grows.
